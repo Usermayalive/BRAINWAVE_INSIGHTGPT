@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from backend.api.v1.endpoints import documents, health, metrics, qa, chat, negotiation
+from backend.api.v1.endpoints import documents, health, metrics, qa, chat, negotiation, auth
 
 api_router = APIRouter()
 
@@ -39,4 +39,10 @@ api_router.include_router(
     negotiation.router,
     prefix="/negotiation",
     tags=["negotiation"]
+)
+
+api_router.include_router(
+    auth.router,
+    prefix="/auth",
+    tags=["auth"]
 )

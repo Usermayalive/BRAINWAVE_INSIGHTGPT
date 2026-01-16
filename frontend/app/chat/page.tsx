@@ -1,14 +1,20 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Bot, User, Sparkles, FileText, Loader2, RefreshCw, CheckCircle } from "lucide-react";
+import {
+    Send, Bot, CircleUserRound, Sparkles, FileText, Loader, RefreshCw, CircleCheck,
+    ChartBar, BookOpen, ExternalLink
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { AnalysisPanel } from "@/components/AnalysisPanel";
+import type { ClauseSummary, SourceCitation } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -68,10 +74,51 @@ const ChatMarkdown = ({ content }: { content: string }) => {
     );
 };
 
+// Sources Panel Component
+const SourcesPanel = ({ sources }: { sources: SourceCitation[] }) => {
+    if (!sources || sources.length === 0) return null;
+
+    return (
+        <div className="mt-4 p-3 bg-zinc-900/50 rounded-lg border border-white/10">
+            <div className="flex items-center gap-2 mb-3">
+                <BookOpen className="h-4 w-4 text-purple-400" />
+                <span className="text-xs font-medium text-white/70 uppercase tracking-wide">
+                    References
+                </span>
+            </div>
+            <div className="space-y-2">
+                {sources.map((source, idx) => (
+                    <div
+                        key={idx}
+                        className="text-xs border-l-2 border-purple-500/30 pl-3 py-1 hover:border-purple-500/60 transition-colors"
+                    >
+                        <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-white/80">
+                                {source.clause_number && source.category
+                                    ? `Section ${source.clause_number} (${source.category})`
+                                    : `Source ${idx + 1}`}
+                            </span>
+                            <span className="text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded-full text-[10px] font-medium">
+                                {source.relevance_score > 0
+                                    ? `${Math.round(source.relevance_score * 100)}%`
+                                    : "N/A"}
+                            </span>
+                        </div>
+                        <div className="text-white/60 line-clamp-2">
+                            &quot;{source.snippet}&quot;
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 interface Message {
     id: string;
     role: "user" | "assistant";
     content: string;
+    sources?: SourceCitation[];
 }
 
 interface DocumentInfo {
@@ -82,7 +129,7 @@ interface DocumentInfo {
     ready: boolean;
 }
 
-export default function ChatPage() {
+function ChatPageContent() {
     const searchParams = useSearchParams();
     const docId = searchParams.get("doc_id");
 
@@ -91,11 +138,15 @@ export default function ChatPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [documentInfo, setDocumentInfo] = useState<DocumentInfo | null>(null);
     const [loadingDoc, setLoadingDoc] = useState(true);
+    const [clauses, setClauses] = useState<ClauseSummary[]>([]);
+    const [clausesLoading, setClausesLoading] = useState(false);
+    const [analysisPanelOpen, setAnalysisPanelOpen] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (docId) {
             fetchDocumentAnalysis();
+            fetchClauses();
         } else {
             setLoadingDoc(false);
         }
@@ -110,7 +161,7 @@ export default function ChatPage() {
     const fetchDocumentAnalysis = async () => {
         setLoadingDoc(true);
         try {
-            const response = await fetch(`${API_URL}/api/v1/chat/${docId}/initial`);
+            const response = await apiGet(`/api/v1/chat/${docId}/initial`);
             if (response.ok) {
                 const data = await response.json();
                 setDocumentInfo(data);
@@ -121,7 +172,11 @@ export default function ChatPage() {
                         role: "assistant",
                         content: data.analysis
                     }]);
+                    // Re-fetch clauses when document is ready
+                    fetchClauses();
                 } else if (data.status === "processing") {
+                    // Also try to fetch clauses while processing (they may appear incrementally)
+                    fetchClauses();
                     setTimeout(fetchDocumentAnalysis, 2000);
                 }
             }
@@ -129,6 +184,23 @@ export default function ChatPage() {
             console.error("Failed to fetch document:", error);
         } finally {
             setLoadingDoc(false);
+        }
+    };
+
+    const fetchClauses = async () => {
+        if (!docId) return;
+        setClausesLoading(true);
+        try {
+            const response = await apiGet(`/api/v1/documents/${docId}/clauses`);
+            if (response.ok) {
+                const data = await response.json();
+                console.log("Fetched clauses:", data.clauses?.length || 0, data.clauses);
+                setClauses(data.clauses || []);
+            }
+        } catch (error) {
+            console.error("Failed to fetch clauses:", error);
+        } finally {
+            setClausesLoading(false);
         }
     };
 
@@ -146,14 +218,10 @@ export default function ChatPage() {
         setIsLoading(true);
 
         try {
-            const response = await fetch(`${API_URL}/api/v1/chat`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    doc_id: docId,
-                    question: input,
-                    history: messages.map(m => ({ role: m.role, content: m.content }))
-                })
+            const response = await apiPost("/api/v1/chat", {
+                doc_id: docId,
+                question: input,
+                history: messages.map(m => ({ role: m.role, content: m.content }))
             });
 
             if (!response.ok) throw new Error("Chat failed");
@@ -163,7 +231,8 @@ export default function ChatPage() {
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",
-                content: data.answer
+                content: data.answer,
+                sources: data.sources || []
             }]);
         } catch (error) {
             setMessages(prev => [...prev, {
@@ -206,142 +275,196 @@ export default function ChatPage() {
     }
 
     return (
-        <div className="flex flex-col h-screen bg-gradient-to-br from-background via-background to-violet-950/20">
-            <header className="shrink-0 border-b border-border/50 glass">
-                <div className="flex h-16 items-center justify-between px-6">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-                            <FileText className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                            <h1 className="font-semibold">{documentInfo?.filename || "Loading..."}</h1>
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                {documentInfo?.status === "completed" ? (
-                                    <>
-                                        <CheckCircle className="h-3 w-3 text-green-500" />
-                                        <span className="text-green-500">Analysis complete</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                        <span>Analyzing...</span>
-                                    </>
-                                )}
+        <div className="flex h-screen bg-gradient-to-br from-background via-background to-violet-950/20">
+            {/* Main Chat Area */}
+            <div className="flex flex-col flex-1 h-full overflow-hidden">
+                <header className="shrink-0 border-b border-border/50 glass">
+                    <div className="flex h-16 items-center justify-between px-6">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                                <FileText className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="font-semibold">{documentInfo?.filename || "Loading..."}</h1>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    {documentInfo?.status === "completed" ? (
+                                        <>
+                                            <CircleCheck className="h-3 w-3 text-green-500" />
+                                            <span className="text-green-500">Analysis complete</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Loader className="h-3 w-3 animate-spin" />
+                                            <span>Analyzing...</span>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    {documentInfo?.status === "processing" && (
-                        <Button variant="outline" size="sm" onClick={fetchDocumentAnalysis}>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Refresh
-                        </Button>
-                    )}
-                </div>
-            </header>
-
-            <ScrollArea ref={scrollRef} className="flex-1 p-6">
-                {loadingDoc ? (
-                    <div className="flex flex-col items-center justify-center h-full py-20">
-                        <Loader2 className="h-10 w-10 text-violet-500 animate-spin" />
-                        <p className="text-muted-foreground mt-4">Analyzing your document...</p>
-                    </div>
-                ) : messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full py-20 text-center">
-                        <div className="h-20 w-20 rounded-full bg-gradient-to-br from-violet-500/20 to-purple-600/20 flex items-center justify-center mb-6 animate-float">
-                            <Sparkles className="h-10 w-10 text-violet-500" />
+                        <div className="flex items-center gap-2">
+                            {documentInfo?.status === "processing" && (
+                                <Button variant="outline" size="sm" onClick={fetchDocumentAnalysis}>
+                                    <RefreshCw className="h-4 w-4 mr-2" />
+                                    Refresh
+                                </Button>
+                            )}
+                            {/* Analysis Panel Toggle Button */}
+                            <Button
+                                variant={analysisPanelOpen ? "secondary" : "outline"}
+                                size="sm"
+                                onClick={() => setAnalysisPanelOpen(!analysisPanelOpen)}
+                                className="xl:hidden"
+                            >
+                                <ChartBar className="h-4 w-4 mr-2" />
+                                Analysis
+                            </Button>
                         </div>
-                        <h2 className="text-xl font-semibold">Waiting for analysis...</h2>
-                        <p className="text-muted-foreground mt-2 max-w-md">
-                            Your document is being analyzed. Results will appear here shortly.
-                        </p>
-                        <Button variant="outline" onClick={fetchDocumentAnalysis} className="mt-4">
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Check Status
-                        </Button>
                     </div>
-                ) : (
-                    <div className="space-y-6 max-w-4xl mx-auto pb-4">
-                        {messages.map((message) => (
-                            <div key={message.id} className={`flex gap-4 ${message.role === "user" ? "justify-end" : ""}`}>
-                                {message.role === "assistant" && (
+                </header>
+
+                <div ref={scrollRef} className="flex-1 p-6 overflow-y-auto">
+                    {loadingDoc ? (
+                        <div className="flex flex-col items-center justify-center h-full py-20">
+                            <Loader className="h-10 w-10 text-violet-500 animate-spin" />
+                            <p className="text-muted-foreground mt-4">Analyzing your document...</p>
+                        </div>
+                    ) : messages.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full py-20 text-center">
+                            <div className="h-20 w-20 rounded-full bg-gradient-to-br from-violet-500/20 to-purple-600/20 flex items-center justify-center mb-6 animate-float">
+                                <Sparkles className="h-10 w-10 text-violet-500" />
+                            </div>
+                            <h2 className="text-xl font-semibold">Waiting for analysis...</h2>
+                            <p className="text-muted-foreground mt-2 max-w-md">
+                                Your document is being analyzed. Results will appear here shortly.
+                            </p>
+                            <Button variant="outline" onClick={fetchDocumentAnalysis} className="mt-4">
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Check Status
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="space-y-6 max-w-4xl mx-auto pb-4">
+                            {messages.map((message) => (
+                                <div key={message.id} className={`flex gap-4 ${message.role === "user" ? "justify-end" : ""}`}>
+                                    {message.role === "assistant" && (
+                                        <Avatar className="h-10 w-10 shrink-0 shadow-lg">
+                                            <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600">
+                                                <Bot className="h-5 w-5 text-white" />
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    )}
+                                    <Card className={`max-w-[85%] ${message.role === "user"
+                                        ? "bg-gradient-to-r from-violet-600 to-purple-600 border-0 shadow-lg shadow-violet-500/20"
+                                        : "glass-card border-border/50"
+                                        }`}>
+                                        <CardContent className="p-4">
+                                            {message.role === "user" ? (
+                                                <p className="text-white text-sm">{message.content}</p>
+                                            ) : (
+                                                <>
+                                                    <ChatMarkdown content={message.content} />
+                                                    {message.sources && message.sources.length > 0 && (
+                                                        <SourcesPanel sources={message.sources} />
+                                                    )}
+                                                </>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                    {message.role === "user" && (
+                                        <Avatar className="h-10 w-10 shrink-0 shadow-lg">
+                                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-cyan-500">
+                                                <CircleUserRound className="h-5 w-5 text-white" strokeWidth={1.5} />
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    )}
+                                </div>
+                            ))}
+                            {isLoading && (
+                                <div className="flex gap-4">
                                     <Avatar className="h-10 w-10 shrink-0 shadow-lg">
                                         <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600">
                                             <Bot className="h-5 w-5 text-white" />
                                         </AvatarFallback>
                                     </Avatar>
-                                )}
-                                <Card className={`max-w-[85%] ${message.role === "user"
-                                        ? "bg-gradient-to-r from-violet-600 to-purple-600 border-0 shadow-lg shadow-violet-500/20"
-                                        : "glass-card border-border/50"
-                                    }`}>
-                                    <CardContent className="p-4">
-                                        {message.role === "user" ? (
-                                            <p className="text-white text-sm">{message.content}</p>
-                                        ) : (
-                                            <ChatMarkdown content={message.content} />
-                                        )}
-                                    </CardContent>
-                                </Card>
-                                {message.role === "user" && (
-                                    <Avatar className="h-10 w-10 shrink-0 shadow-lg">
-                                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-cyan-500">
-                                            <User className="h-5 w-5 text-white" />
-                                        </AvatarFallback>
-                                    </Avatar>
-                                )}
-                            </div>
-                        ))}
-                        {isLoading && (
-                            <div className="flex gap-4">
-                                <Avatar className="h-10 w-10 shrink-0 shadow-lg">
-                                    <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600">
-                                        <Bot className="h-5 w-5 text-white" />
-                                    </AvatarFallback>
-                                </Avatar>
-                                <Card className="glass-card border-border/50">
-                                    <CardContent className="p-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex gap-1">
-                                                <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce" />
-                                                <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:0.1s]" />
-                                                <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                                    <Card className="glass-card border-border/50">
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex gap-1">
+                                                    <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce" />
+                                                    <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:0.1s]" />
+                                                    <span className="w-2 h-2 bg-violet-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                                                </div>
+                                                <span className="text-sm text-muted-foreground">Thinking...</span>
                                             </div>
-                                            <span className="text-sm text-muted-foreground">Thinking...</span>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </ScrollArea>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
 
-            <div className="shrink-0 border-t border-border/50 p-4 glass">
-                <div className="max-w-4xl mx-auto">
-                    <div className="flex gap-4 items-end">
-                        <Textarea
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder="Ask a question about your document..."
-                            className="min-h-[52px] max-h-32 resize-none bg-background/50 border-border/50"
-                            disabled={!documentInfo?.ready}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSend();
-                                }
-                            }}
-                        />
-                        <Button
-                            onClick={handleSend}
-                            disabled={!input.trim() || isLoading || !documentInfo?.ready}
-                            className="bg-gradient-to-r from-violet-600 to-purple-600 h-[52px] px-6 shadow-lg shadow-violet-500/25"
-                        >
-                            <Send className="h-4 w-4" />
-                        </Button>
+                <div className="shrink-0 border-t border-border/50 p-4 glass">
+                    <div className="max-w-4xl mx-auto">
+                        <div className="flex gap-4 items-end">
+                            <Textarea
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                placeholder="Ask a question about your document..."
+                                className="min-h-[52px] max-h-32 resize-none bg-background/50 border-border/50"
+                                disabled={!documentInfo?.ready}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSend();
+                                    }
+                                }}
+                            />
+                            <Button
+                                onClick={handleSend}
+                                disabled={!input.trim() || isLoading || !documentInfo?.ready}
+                                className="bg-gradient-to-r from-violet-600 to-purple-600 h-[52px] px-6 shadow-lg shadow-violet-500/25"
+                            >
+                                <Send className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            {/* Analysis Panel - Desktop always visible, mobile toggleable */}
+            <div className="hidden xl:block">
+                <AnalysisPanel
+                    isOpen={true}
+                    onClose={() => { }}
+                    clauses={clauses}
+                    isLoading={clausesLoading}
+                    documentName={documentInfo?.filename}
+                />
+            </div>
+
+            {/* Mobile Analysis Panel */}
+            <div className="xl:hidden">
+                <AnalysisPanel
+                    isOpen={analysisPanelOpen}
+                    onClose={() => setAnalysisPanelOpen(false)}
+                    clauses={clauses}
+                    isLoading={clausesLoading}
+                    documentName={documentInfo?.filename}
+                />
+            </div>
+        </div >
+    );
+}
+
+export default function ChatPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen">
+                <Loader className="h-8 w-8 text-violet-500 animate-spin" />
+            </div>
+        }>
+            <ChatPageContent />
+        </Suspense>
     );
 }

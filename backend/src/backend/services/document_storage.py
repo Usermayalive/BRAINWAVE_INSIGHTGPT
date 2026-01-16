@@ -102,6 +102,15 @@ class DocumentStorage:
             return True
         return False
 
+    async def set_clauses(self, doc_id: str, clauses: list) -> None:
+        if doc_id in self._documents:
+            # Storing as object directly since it's an in-memory dict
+            # In a real DB, this would be a JSON field or separate table
+            self._document_texts[f"{doc_id}_clauses"] = clauses
+
+    async def get_clauses(self, doc_id: str) -> Optional[list]:
+        return self._document_texts.get(f"{doc_id}_clauses")
+
 
 document_storage = DocumentStorage()
 

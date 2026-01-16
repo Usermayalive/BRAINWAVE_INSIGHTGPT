@@ -4,7 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from backend.api.v1.endpoints import documents, health, chat
+from backend.api.v1.api import api_router
+from backend.dependencies.services import initialize_services
 
 logging.basicConfig(
     level=logging.INFO,
@@ -12,10 +13,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("InsightGPT Backend Server has started!")
+    # Initialize all singleton services
+    await initialize_services()
     yield
     logger.info("InsightGPT Backend Server is shutting down...")
 
@@ -35,9 +37,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(health.router, prefix="/api/v1/health", tags=["health"])
-app.include_router(documents.router, prefix="/api/v1/documents", tags=["documents"])
-app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
+app.include_router(api_router, prefix="/api/v1")
 
 
 @app.get("/")

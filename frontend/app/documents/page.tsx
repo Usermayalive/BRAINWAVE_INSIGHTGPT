@@ -6,18 +6,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Search, ArrowUpFromLine, RefreshCw, Trash2, Loader2 } from "lucide-react";
+import { FileText, Search, ArrowUpFromLine, RefreshCw, Loader } from "lucide-react";
+import { apiGet, apiDelete } from "@/lib/auth-fetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface Document {
     doc_id: string;
     filename: string;
-    file_size: number;
-    content_type: string;
     status: string;
-    created_at: string;
-    updated_at: string;
+    created_at: string | null;
+    page_count: number;
+    clause_count: number;
+    language: string;
+    user_id?: string;
 }
 
 export default function DocumentsPage() {
@@ -31,7 +33,8 @@ export default function DocumentsPage() {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(`${API_URL}/api/v1/documents`);
+            // Use authenticated fetch - will automatically filter by user if authenticated
+            const response = await apiGet("/api/v1/documents");
             if (!response.ok) throw new Error("Failed to fetch documents");
             const data = await response.json();
             setDocuments(data.documents);
@@ -49,9 +52,7 @@ export default function DocumentsPage() {
     const handleDelete = async (docId: string) => {
         setDeleting(docId);
         try {
-            const response = await fetch(`${API_URL}/api/v1/documents/${docId}`, {
-                method: "DELETE",
-            });
+            const response = await apiDelete(`/api/v1/documents/${docId}`);
             if (response.ok) {
                 setDocuments(prev => prev.filter(d => d.doc_id !== docId));
             }
@@ -119,7 +120,7 @@ export default function DocumentsPage() {
 
                 {loading && documents.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20">
-                        <Loader2 className="h-10 w-10 text-violet-500 animate-spin" />
+                        <Loader className="h-10 w-10 text-violet-500 animate-spin" />
                         <p className="text-muted-foreground mt-4">Loading documents...</p>
                     </div>
                 ) : error ? (
@@ -165,28 +166,25 @@ export default function DocumentsPage() {
                                             <div>
                                                 <h3 className="font-semibold">{doc.filename}</h3>
                                                 <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                                                    <span>{formatFileSize(doc.file_size)}</span>
+                                                    <span>{doc.page_count} pages</span>
                                                     <span>•</span>
-                                                    <span>{formatDate(doc.created_at)}</span>
+                                                    <span>{doc.clause_count} clauses</span>
+                                                    <span>•</span>
+                                                    <span>{doc.created_at ? formatDate(doc.created_at) : "Unknown date"}</span>
                                                 </div>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <Badge variant={doc.status === "uploaded" ? "secondary" : "default"}>
+                                            <Badge variant={doc.status === "completed" ? "default" : doc.status === "processing" ? "secondary" : "destructive"}>
                                                 {doc.status}
                                             </Badge>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleDelete(doc.doc_id)}
-                                                disabled={deleting === doc.doc_id}
-                                            >
-                                                {deleting === doc.doc_id ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-red-500" />
-                                                )}
-                                            </Button>
+                                            {doc.status === "completed" && (
+                                                <Link href={`/chat?doc=${doc.doc_id}`}>
+                                                    <Button size="sm" className="bg-gradient-to-r from-violet-600 to-purple-600">
+                                                        View Analysis
+                                                    </Button>
+                                                </Link>
+                                            )}
                                         </div>
                                     </div>
                                 </CardContent>

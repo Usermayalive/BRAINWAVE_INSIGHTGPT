@@ -14,7 +14,8 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
-        extra="ignore"
+        extra="ignore",
+        populate_by_name=True
     )
     
     # Basic server settings
@@ -29,10 +30,15 @@ class Settings(BaseSettings):
     API_V1_STR: str = Field(default="/api/v1", description="API v1 prefix")
 
     # GCP Settings
-    PROJECT_ID: str = Field(default="legalease-ai", description="GCP Project ID")
+    PROJECT_ID: str = Field(default="brainwave-insightgpt", description="GCP Project ID")
     REGION: str = Field(default="us-central1", description="GCP Region")
     GOOGLE_APPLICATION_CREDENTIALS: str = Field(default="", description="Path to service account credentials")
+    
+    # Firestore Settings
     FIRESTORE_DATABASE: str = Field(default="(default)", description="Firestore database name")
+
+    GEMINI_API_KEY: str = Field(default="", alias="GOOGLE_GENAI_API_KEY", description="Google Gemini API key")
+    GEMINI_MODEL: str = Field(default="gemini-2.0-flash", alias="GEMINI_MODEL_NAME", description="Gemini model name")
 
 
 @lru_cache()

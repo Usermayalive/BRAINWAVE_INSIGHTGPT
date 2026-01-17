@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 // Routes that require authentication
-const protectedRoutes = ['/', '/chat', '/documents', '/history', '/upload', '/settings']
+const protectedRoutes = ['/dashboard', '/chat', '/documents', '/history', '/upload', '/settings']
 
-// Routes that are public only (redirect to home if authenticated)
+// Routes that are public only (redirect to dashboard if authenticated)
 const publicOnlyRoutes = ['/login']
 
 export function middleware(request: NextRequest) {
@@ -32,7 +32,7 @@ export function middleware(request: NextRequest) {
 
     // Redirect to dashboard if accessing login while authenticated
     if (isPublicOnlyRoute && token) {
-        return NextResponse.redirect(new URL('/', request.url))
+        return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
     return NextResponse.next()

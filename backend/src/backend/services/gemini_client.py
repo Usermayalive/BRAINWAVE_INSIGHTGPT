@@ -85,7 +85,7 @@ class GeminiClient:
             logger.info(f"Google GenAI client initialized for model: {model_name}")
             
         except Exception as e:
-            logger.error(f"Failed to initialize Google GenAI client: {e}")
+            logger.error(f"Failed to initialize Google GenAI client. Check GEMINI_API_KEY and model availability. Error: {e}")
             raise GeminiError(f"GenAI client initialization failed: {e}")
 
     async def batch_summarize_clauses(
@@ -178,7 +178,14 @@ class GeminiClient:
             return await self._process_batch(batch, include_negotiation_tips)
         except Exception as e:
             logger.error(f"Batch {batch_num} failed: {e}")
-            fallback_results = self._create_fallback_results(batch)
+            # Clean error message for user visibility
+            error_str = str(e)
+            if "404" in error_str and "NotFound" in error_str:
+                error_str = "Model not found or API key invalid"
+            elif "400" in error_str:
+                error_str = "Invalid request/model parameters"
+                
+            fallback_results = self._create_fallback_results(batch, error_msg=error_str)
             return fallback_results
     
     async def _generate_content(self, system_prompt: str, user_prompt: str) -> str:
@@ -428,16 +435,31 @@ class GeminiClient:
         
         return validated
     
-    def _create_fallback_results(self, clauses: List[ClauseCandidate]) -> List[Dict[str, Any]]:
+    def _create_fallback_results(
+        self, 
+        clauses: List[ClauseCandidate], 
+        error_msg: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """Create fallback results for failed batch processing."""
-        return [self._create_fallback_result(clause, i) for i, clause in enumerate(clauses)]
+        return [self._create_fallback_result(clause, i, error_msg) for i, clause in enumerate(clauses)]
     
-    def _create_fallback_result(self, clause: ClauseCandidate, index: int) -> Dict[str, Any]:
+    def _create_fallback_result(
+        self, 
+        clause: ClauseCandidate, 
+        index: int, 
+        error_msg: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Create a fallback result for a single clause."""
+        
+        summary_text = "This clause requires manual review. Automatic summarization failed."
+        if error_msg:
+            # Add error details for debugging visibility as requested by user
+            summary_text += f" (Error: {error_msg})"
+            
         return {
             "clause_id": f"clause_{index}",
             "original_text": clause.text,
-            "summary": "This clause requires manual review. Automatic summarization failed.",
+            "summary": summary_text,
             "category": getattr(clause, 'category', 'Other'),
             "risk_level": "moderate",
             "negotiation_tip": None,

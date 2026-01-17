@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     DOC_AI_PROCESSOR_ID: str = Field(default="", description="Document AI Processor ID")
 
     GEMINI_API_KEY: str = Field(default="", alias="GOOGLE_GENAI_API_KEY", description="Google Gemini API key")
-    GEMINI_MODEL: str = Field(default="gemini-2.0-flash", alias="GEMINI_MODEL_NAME", description="Gemini model name")
+    GEMINI_MODEL: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL_NAME", description="Gemini model name")
     EMBEDDING_MODEL: str = Field(default="text-embedding-004", description="Embedding model name")
     
     # Document processing limits

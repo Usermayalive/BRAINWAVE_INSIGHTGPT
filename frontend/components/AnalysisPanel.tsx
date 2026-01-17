@@ -63,24 +63,24 @@ export const AnalysisPanel = ({
             <aside
                 className={`
         ${isOpen ? "flex" : "hidden"}
-        xl:flex w-[26rem] shrink-0 flex-col border-l border-white/10 bg-zinc-950 h-full overflow-hidden
+        xl:flex w-[26rem] shrink-0 flex-col border-l border-border bg-background h-full overflow-hidden
         fixed xl:relative top-0 right-0 z-30 xl:z-auto
-        transition-transform duration-300 ease-out
+        transition-transform duration-300 ease-out shadow-2xl xl:shadow-none
       `}
             >
                 <div className="p-4 flex flex-col h-full overflow-hidden">
                     {/* Panel Header */}
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
                                 <BarChart className="h-4 w-4 text-white" />
                             </div>
                             <div>
-                                <h2 className="text-sm font-semibold text-white">
+                                <h2 className="text-sm font-semibold text-foreground">
                                     Document Analysis
                                 </h2>
                                 {documentName && (
-                                    <p className="text-xs text-white/50 truncate max-w-[180px]">
+                                    <p className="text-xs text-muted-foreground truncate max-w-[180px]">
                                         {documentName}
                                     </p>
                                 )}
@@ -90,7 +90,7 @@ export const AnalysisPanel = ({
                             variant="ghost"
                             size="icon"
                             onClick={onClose}
-                            className="xl:hidden hover:bg-white/10"
+                            className="xl:hidden hover:bg-muted"
                         >
                             <X className="h-5 w-5" />
                         </Button>
@@ -99,9 +99,9 @@ export const AnalysisPanel = ({
                     {/* Scrollable content area */}
                     <div className="flex-1 overflow-y-auto no-scrollbar space-y-6 pr-2">
                         {/* Overall Risk Score */}
-                        <div className="p-4 rounded-xl bg-gradient-to-br from-zinc-900 to-zinc-900/50 border border-white/10">
+                        <div className="p-4 rounded-xl bg-gradient-to-br from-card to-muted/50 border border-border shadow-sm">
                             <div className="flex items-center justify-between mb-3">
-                                <div className="text-xs font-medium text-white/60 uppercase tracking-wide">
+                                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                     Overall Risk Score
                                 </div>
                                 <div className={`text-xs font-medium ${getRiskScoreColor(riskScore)}`}>
@@ -112,10 +112,10 @@ export const AnalysisPanel = ({
                                 <div className={`text-4xl font-bold ${getRiskScoreColor(riskScore)}`}>
                                     {riskScore}
                                 </div>
-                                <div className="text-sm text-white/40 pb-1">/100</div>
+                                <div className="text-sm text-muted-foreground pb-1">/100</div>
                             </div>
                             {/* Progress bar */}
-                            <div className="mt-3 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                            <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
                                 <div
                                     className={`h-full rounded-full transition-all duration-500 ${riskScore <= 30
                                         ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
@@ -126,18 +126,18 @@ export const AnalysisPanel = ({
                                     style={{ width: `${riskScore}%` }}
                                 />
                             </div>
-                            <div className="mt-2 text-xs text-white/50">
+                            <div className="mt-2 text-xs text-muted-foreground">
                                 Based on {totalClauses} analyzed sections
                             </div>
                         </div>
 
                         {/* Risk Analysis Section */}
                         <div>
-                            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-white/70">
+                            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                                 <Flame className="h-4 w-4 text-red-500" /> Risk Heat Map
                             </h3>
 
-                            <div className="p-4 rounded-xl bg-zinc-900/50 border border-white/10">
+                            <div className="p-4 rounded-xl bg-card border border-border/50 shadow-sm">
                                 <RiskHeatmap
                                     clauses={clauses}
                                     isLoading={isLoading}
@@ -147,6 +147,7 @@ export const AnalysisPanel = ({
                         </div>
 
                         {/* Readability Section */}
+                        {/* Wrapper for readability panel handled internally, but container updated */}
                         <div>
                             <ReadabilityPanel
                                 clauses={clauses}
@@ -157,28 +158,26 @@ export const AnalysisPanel = ({
 
                         {/* Quick Stats */}
                         <div>
-                            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-white/70">
+                            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                                 <BookOpen className="h-4 w-4 text-blue-500" /> Analysis Summary
                             </h3>
 
                             <div className="grid grid-cols-2 gap-3">
-                                <div className="p-3 rounded-lg bg-zinc-900/50 border border-white/10">
-                                    <div className="text-2xl font-bold text-white">{totalClauses}</div>
-                                    <div className="text-xs text-white/60">Total Sections</div>
+                                <div className="p-3 rounded-lg bg-card border border-border/50 shadow-sm">
+                                    <div className="text-2xl font-bold text-foreground">{totalClauses}</div>
+                                    <div className="text-xs text-muted-foreground">Total Sections</div>
                                 </div>
-                                <div className="p-3 rounded-lg bg-zinc-900/50 border border-white/10">
-                                    <div className="text-2xl font-bold text-purple-400">
-                                        {clauses.filter((c) => c.needs_review).length}
-                                    </div>
-                                    <div className="text-xs text-white/60">Needs Review</div>
+                                <div className="p-3 rounded-lg bg-card border border-border/50 shadow-sm">
+                                    <div className="text-2xl font-bold text-purple-500">{clauses.filter((c) => c.needs_review).length}</div>
+                                    <div className="text-xs text-muted-foreground">Needs Review</div>
                                 </div>
-                                <div className="p-3 rounded-lg bg-zinc-900/50 border border-white/10">
-                                    <div className="text-2xl font-bold text-red-400">{highRiskCount}</div>
-                                    <div className="text-xs text-white/60">High Risk Items</div>
+                                <div className="p-3 rounded-lg bg-card border border-border/50 shadow-sm">
+                                    <div className="text-2xl font-bold text-red-500">{highRiskCount}</div>
+                                    <div className="text-xs text-muted-foreground">High Risk Items</div>
                                 </div>
-                                <div className="p-3 rounded-lg bg-zinc-900/50 border border-white/10">
-                                    <div className="text-2xl font-bold text-emerald-400">{lowRiskCount}</div>
-                                    <div className="text-xs text-white/60">Safe Items</div>
+                                <div className="p-3 rounded-lg bg-card border border-border/50 shadow-sm">
+                                    <div className="text-2xl font-bold text-emerald-500">{lowRiskCount}</div>
+                                    <div className="text-xs text-muted-foreground">Safe Items</div>
                                 </div>
                             </div>
                         </div>
@@ -186,7 +185,7 @@ export const AnalysisPanel = ({
                         {/* Categories Breakdown */}
                         {clauses.length > 0 && (
                             <div>
-                                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/70">
+                                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                                     Categories Found
                                 </h3>
                                 <div className="space-y-2">
@@ -195,9 +194,9 @@ export const AnalysisPanel = ({
                                         const percentage = Math.round((categoryCount / totalClauses) * 100);
                                         return (
                                             <div key={category} className="flex items-center gap-2">
-                                                <div className="flex-1 text-xs text-white/70">{category}</div>
-                                                <div className="text-xs text-white/50">{categoryCount}</div>
-                                                <div className="w-20 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                                                <div className="flex-1 text-xs text-muted-foreground">{category}</div>
+                                                <div className="text-xs text-muted-foreground/70">{categoryCount}</div>
+                                                <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
                                                     <div
                                                         className="h-full bg-gradient-to-r from-violet-500 to-purple-500 rounded-full"
                                                         style={{ width: `${percentage}%` }}

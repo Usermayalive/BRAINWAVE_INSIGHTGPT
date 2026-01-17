@@ -119,6 +119,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -126,25 +127,25 @@
 
 @layer utilities {
   .glass {
-    @apply bg-background/80 backdrop-blur-xl;
+    @apply bg-background/80 backdrop-blur-xl border-b border-border/50;
   }
-  
+
   .glass-card {
-    @apply bg-card/50 backdrop-blur-lg border border-white/10;
+    @apply bg-card/50 backdrop-blur-lg border border-border/50 shadow-sm;
   }
-  
+
   .gradient-text {
-    @apply bg-gradient-to-r from-violet-400 via-purple-400 to-fuchsia-400 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 dark:from-violet-400 dark:via-purple-400 dark:to-fuchsia-400 bg-clip-text text-transparent;
   }
-  
+
   .gradient-border {
-    @apply relative before:absolute before:inset-0 before:rounded-xl before:p-[1px] before:bg-gradient-to-r before:from-violet-500/50 before:to-purple-500/50 before:-z-10;
+    @apply relative before:absolute before:inset-0 before:rounded-xl before:p-[1px] before:bg-gradient-to-r before:from-violet-500/20 before:to-purple-500/20 dark:before:from-violet-500/50 dark:before:to-purple-500/50 before:-z-10;
   }
-  
+
   .hover-lift {
     @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-500/10;
   }
-  
+
   .animate-glow {
     animation: glow 2s ease-in-out infinite alternate;
   }
@@ -154,15 +155,19 @@
   from {
     box-shadow: 0 0 20px rgba(139, 92, 246, 0.1);
   }
+
   to {
     box-shadow: 0 0 40px rgba(139, 92, 246, 0.2);
   }
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-10px);
   }

@@ -80,6 +80,11 @@ class EmbeddingsService:
             return embedding
             
         except Exception as e:
+            error_str = str(e)
+            if "403" in error_str and "SERVICE_DISABLED" in error_str:
+                logger.error("Generative Language API is disabled. Please enable it here: https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/")
+                raise EmbeddingsError(f"API Disabled: Enable Generative Language API at https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/")
+            
             logger.error(f"Error generating embedding: {e}")
             raise EmbeddingsError(f"Embedding generation failed: {e}")
     
@@ -161,6 +166,12 @@ class EmbeddingsService:
             return embeddings
             
         except Exception as e:
+            error_str = str(e)
+            if "403" in error_str and "SERVICE_DISABLED" in error_str:
+                msg = "Generative Language API is disabled. Please enable it here: https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/"
+                logger.error(msg)
+                raise EmbeddingsError(msg)
+                
             logger.error(f"Critical error in batch embedding generation: {e}")
             raise EmbeddingsError(f"Batch embedding generation failed: {e}")
     

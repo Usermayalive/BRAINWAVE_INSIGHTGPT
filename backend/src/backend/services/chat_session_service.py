@@ -89,6 +89,10 @@ class ChatSessionService:
             session_data['updated_at'] = SERVER_TIMESTAMP
             session_data['last_activity'] = SERVER_TIMESTAMP
             
+            # Ensure document_ids is present (from selected_documents) for legacy queries
+            if 'document_ids' not in session_data or not session_data['document_ids']:
+                session_data['document_ids'] = request.selected_document_ids or []
+
             session_ref.set(session_data)
             
             logger.info(f"Created chat session: {session_id}")

@@ -172,10 +172,10 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({
 
     const getCellColor = (cell: HeatmapCell) => {
         const intensity = getIntensity(cell.percentage);
-        if (intensity === 0) return "bg-zinc-800/50 border-zinc-700/50";
+        if (intensity === 0) return "bg-muted/50 border-border/30";
 
         const baseColor = RISK_COLORS[cell.riskLevel];
-        return `${baseColor} border-zinc-600`;
+        return `${baseColor} border-white/20 dark:border-zinc-700`;
     };
 
     const getCellOpacity = (cell: HeatmapCell) => {
@@ -208,12 +208,12 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({
                 <div className="animate-pulse space-y-4">
                     {/* Legend skeleton */}
                     <div className="space-y-2">
-                        <div className="h-3 bg-zinc-700 rounded w-20"></div>
+                        <div className="h-3 bg-muted rounded w-20"></div>
                         <div className="flex gap-3">
                             {[...Array(3)].map((_, i) => (
                                 <div key={i} className="flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-zinc-700 rounded-sm"></div>
-                                    <div className="h-2 bg-zinc-700 rounded w-16"></div>
+                                    <div className="w-3 h-3 bg-muted rounded-sm"></div>
+                                    <div className="h-2 bg-muted rounded w-16"></div>
                                 </div>
                             ))}
                         </div>
@@ -222,27 +222,27 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({
                     {/* Heatmap skeleton */}
                     <div className="space-y-1">
                         <div className="flex gap-2">
-                            <div className="w-24 h-4 bg-zinc-700 rounded"></div>
+                            <div className="w-24 h-4 bg-muted rounded"></div>
                             {[...Array(3)].map((_, i) => (
-                                <div key={i} className="w-16 h-4 bg-zinc-700 rounded"></div>
+                                <div key={i} className="w-16 h-4 bg-muted rounded"></div>
                             ))}
                         </div>
                         {[...Array(5)].map((_, row) => (
                             <div key={row} className="flex gap-2">
-                                <div className="w-24 h-8 bg-zinc-700 rounded"></div>
+                                <div className="w-24 h-8 bg-muted rounded"></div>
                                 {[...Array(3)].map((_, col) => (
-                                    <div key={col} className="w-16 h-8 bg-zinc-700 rounded"></div>
+                                    <div key={col} className="w-16 h-8 bg-muted rounded"></div>
                                 ))}
                             </div>
                         ))}
                     </div>
 
                     {/* Stats skeleton */}
-                    <div className="grid grid-cols-3 gap-4 pt-3 border-t border-white/10">
+                    <div className="grid grid-cols-3 gap-4 pt-3 border-t border-border/50">
                         {[...Array(3)].map((_, i) => (
                             <div key={i} className="text-center space-y-1">
-                                <div className="h-6 bg-zinc-700 rounded w-8 mx-auto"></div>
-                                <div className="h-3 bg-zinc-700 rounded w-16 mx-auto"></div>
+                                <div className="h-6 bg-muted rounded w-8 mx-auto"></div>
+                                <div className="h-3 bg-muted rounded w-16 mx-auto"></div>
                             </div>
                         ))}
                     </div>
@@ -255,7 +255,7 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({
         return (
             <div className={`p-4 text-center text-red-400 ${className}`}>
                 <div className="text-sm">Failed to load risk analysis</div>
-                <div className="text-xs mt-1 text-white/60">
+                <div className="text-xs mt-1 text-muted-foreground">
                     {error.message || "Please try refreshing"}
                 </div>
             </div>
@@ -264,7 +264,7 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({
 
     if (clauses.length === 0) {
         return (
-            <div className={`p-4 text-center text-white/50 ${className}`}>
+            <div className={`p-4 text-center text-muted-foreground ${className}`}>
                 <div className="text-sm">No analysis data available</div>
                 <div className="text-xs mt-1">Upload a document to see risk analysis</div>
             </div>
@@ -275,14 +275,14 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({
         <div className={`relative ${className}`}>
             {/* Legend */}
             <div className="mb-4">
-                <div className="text-xs font-medium text-white/70 mb-2">
+                <div className="text-xs font-medium text-muted-foreground mb-2">
                     Risk Levels
                 </div>
                 <div className="flex gap-3">
                     {RISK_LEVELS.map((level) => (
                         <div key={level} className="flex items-center gap-2">
                             <div className={`w-3 h-3 rounded-sm ${RISK_COLORS[level]}`}></div>
-                            <span className="text-xs text-white/60">
+                            <span className="text-xs text-muted-foreground">
                                 {RISK_LABELS[level]}
                             </span>
                         </div>
@@ -300,7 +300,7 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({
                         {RISK_LEVELS.map((level) => (
                             <div
                                 key={level}
-                                className="w-16 text-xs text-white/60 text-center px-1"
+                                className="w-16 text-xs text-muted-foreground text-center px-1"
                             >
                                 {RISK_LABELS[level]}
                             </div>
@@ -311,7 +311,7 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({
                     {heatmapData.categories.map((category) => (
                         <div key={category} className="flex mb-1">
                             {/* Row label */}
-                            <div className="w-24 flex-shrink-0 text-xs text-white/70 py-2 pr-2 text-right truncate">
+                            <div className="w-24 flex-shrink-0 text-xs text-muted-foreground py-2 pr-2 text-right truncate">
                                 {category}
                             </div>
 
@@ -336,7 +336,7 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({
                                     >
                                         {cell.count > 0 && (
                                             <div className="absolute inset-0 flex items-center justify-center">
-                                                <span className="text-xs font-medium text-white drop-shadow">
+                                                <span className="text-xs font-medium text-white drop-shadow-md">
                                                     {cell.count}
                                                 </span>
                                             </div>
@@ -350,32 +350,32 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({
             </div>
 
             {/* Summary stats */}
-            <div className="mt-4 pt-3 border-t border-white/10">
+            <div className="mt-4 pt-3 border-t border-border/50">
                 <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
-                        <div className="text-lg font-semibold text-white flex items-center justify-center gap-1">
-                            <CheckCircle className="h-4 w-4 text-emerald-400" />
+                        <div className="text-lg font-semibold text-foreground flex items-center justify-center gap-1">
+                            <CheckCircle className="h-4 w-4 text-emerald-500" />
                             {clauses.filter((c) => c.risk_level === "low").length}
                         </div>
-                        <div className="text-xs text-white/60">
+                        <div className="text-xs text-muted-foreground">
                             Low Risk
                         </div>
                     </div>
                     <div>
-                        <div className="text-lg font-semibold text-yellow-400 flex items-center justify-center gap-1">
+                        <div className="text-lg font-semibold text-yellow-500 flex items-center justify-center gap-1">
                             <TrendingUp className="h-4 w-4" />
                             {clauses.filter((c) => c.risk_level === "moderate").length}
                         </div>
-                        <div className="text-xs text-white/60">
+                        <div className="text-xs text-muted-foreground">
                             Moderate
                         </div>
                     </div>
                     <div>
-                        <div className="text-lg font-semibold text-red-400 flex items-center justify-center gap-1">
+                        <div className="text-lg font-semibold text-red-500 flex items-center justify-center gap-1">
                             <AlertTriangle className="h-4 w-4" />
                             {clauses.filter((c) => c.risk_level === "attention").length}
                         </div>
-                        <div className="text-xs text-white/60">
+                        <div className="text-xs text-muted-foreground">
                             High Risk
                         </div>
                     </div>
@@ -388,26 +388,26 @@ export const RiskHeatmap: React.FC<RiskHeatmapProps> = ({
                     ref={tooltipRef}
                     onMouseEnter={handleTooltipMouseEnter}
                     onMouseLeave={handleTooltipMouseLeave}
-                    className="fixed z-50 bg-zinc-900 border border-zinc-700 rounded-lg p-3 shadow-xl max-w-xs backdrop-blur-sm"
+                    className="fixed z-50 bg-popover/95 text-popover-foreground border border-border rounded-lg p-3 shadow-xl max-w-xs backdrop-blur-sm"
                     style={{ left: tooltip.x, top: tooltip.y }}
                 >
-                    <div className="text-sm font-medium text-white mb-1">
+                    <div className="text-sm font-medium mb-1">
                         {tooltip.cell.category} - {RISK_LABELS[tooltip.cell.riskLevel]}
                     </div>
-                    <div className="text-xs text-white/80 mb-2">
+                    <div className="text-xs text-muted-foreground mb-2">
                         {tooltip.cell.count} clause{tooltip.cell.count !== 1 ? "s" : ""} (
                         {tooltip.cell.percentage.toFixed(1)}%)
                     </div>
                     {tooltip.cell.clauses.length > 0 && (
-                        <div className="text-xs text-white/60">
+                        <div className="text-xs text-muted-foreground">
                             <div className="font-medium mb-1">Clauses:</div>
                             {tooltip.cell.clauses.slice(0, 3).map((clause) => (
                                 <div key={clause.clause_id} className="mb-1">
-                                    <div className="truncate">• {clause.summary}</div>
+                                    <div className="truncate text-foreground/90">• {clause.summary}</div>
                                 </div>
                             ))}
                             {tooltip.cell.clauses.length > 3 && (
-                                <div className="text-white/40 mt-1">
+                                <div className="text-muted-foreground/60 mt-1">
                                     +{tooltip.cell.clauses.length - 3} more
                                 </div>
                             )}

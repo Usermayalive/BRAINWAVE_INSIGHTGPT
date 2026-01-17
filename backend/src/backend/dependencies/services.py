@@ -236,7 +236,10 @@ async def initialize_services():
     document_queue_manager = get_document_queue_manager()
     
     # Initialize Gemini client (async initialization)
-    await gemini_client.initialize()
+    try:
+        await gemini_client.initialize()
+    except Exception as e:
+        logger.warning(f"Gemini client initialization failed (continuing startup): {e}")
     
     # Start cache cleanup task
     from backend.services.cache_service import start_cache_cleanup_task

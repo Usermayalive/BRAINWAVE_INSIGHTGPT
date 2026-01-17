@@ -154,11 +154,13 @@ async def chat_legacy(
 async def get_initial_document_analysis(
     doc_id: str,
     chat_service: ChatSessionService = Depends(get_chat_session_service),
-    qa_service: QAService = Depends(get_qa_service)
+    qa_service: QAService = Depends(get_qa_service),
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Get initial document analysis for the chat page.
     Returns document info and initial AI analysis if processing is complete.
+    If authenticated, ensures a chat session exists and persists the analysis.
     """
     try:
         from backend.dependencies.services import get_firestore_client, get_gemini_client
@@ -217,12 +219,66 @@ Feel free to ask me any questions about this document!"""
         else:
             analysis = f"Document **{filename}** has been processed. Ask me questions about it!"
         
+        # PERSISTENCE LOGIC
+        session_id = None
+        if current_user and analysis:
+            try:
+                # 1. Check if session already exists for this doc
+                existing_sessions = await chat_service.list_sessions(
+                    user_id=current_user.id, 
+                    limit=20
+                )
+                
+                # Check if any session is for THIS document
+                for sess in existing_sessions:
+                    # Check document context
+                    if any(d.doc_id == doc_id for d in sess.selected_documents):
+                        session_id = sess.session_id
+                        # If session exists but has no messages, we should add the analysis
+                        if sess.total_messages == 0:
+                            logger.info(f"Found empty session {session_id} for doc {doc_id}, adding analysis")
+                            await chat_service.add_message(
+                                session_id,
+                                AddMessageRequest(
+                                    role=MessageRole.ASSISTANT,
+                                    content=analysis
+                                )
+                            )
+                        break
+                
+                # 2. If NO session exists, create one and add the analysis message
+                if not session_id:
+                    # Create session
+                    create_req = CreateChatSessionRequest(
+                        user_id=current_user.id,
+                        title=f"Chat: {filename}",
+                        selected_document_ids=[doc_id]
+                    )
+                    session, _ = await chat_service.create_session(create_req)
+                    session_id = session.session_id
+                    
+                    # Add initial analysis as assistant message
+                    await chat_service.add_message(
+                        session_id,
+                        AddMessageRequest(
+                            role=MessageRole.ASSISTANT,
+                            content=analysis
+                        )
+                    )
+                    logger.info(f"Created new session {session_id} with initial analysis for doc {doc_id}")
+            except Exception as persist_err:
+                logger.error(f"Failed to persist initial analysis: {persist_err}")
+                # Log traceback for better debugging
+                import traceback
+                logger.error(traceback.format_exc())
+
         return {
             "doc_id": doc_id,
             "filename": filename,
             "status": status,
             "analysis": analysis,
-            "ready": True
+            "ready": True,
+            "session_id": session_id  # Return session ID if available/created
         }
         
     except HTTPException:
@@ -300,10 +356,20 @@ async def get_my_chat_history(
         # Format for frontend
         formatted_sessions = []
         for session in sessions:
+            # Handle document_ids from either legacy field or selected_documents
+            doc_ids = session.get("document_ids", [])
+            if not doc_ids and session.get("selected_documents"):
+                # Extract IDs from selected_documents objects
+                doc_ids = [
+                    d.get("doc_id") 
+                    for d in session.get("selected_documents", []) 
+                    if isinstance(d, dict) and d.get("doc_id")
+                ]
+
             formatted_sessions.append({
                 "session_id": session.get("session_id"),
                 "title": session.get("title", "Untitled"),
-                "document_ids": session.get("document_ids", []),
+                "document_ids": doc_ids,
                 "message_count": session.get("message_count", 0),
                 "last_message_preview": session.get("last_message_preview", ""),
                 "created_at": session.get("created_at").isoformat() if session.get("created_at") else None,

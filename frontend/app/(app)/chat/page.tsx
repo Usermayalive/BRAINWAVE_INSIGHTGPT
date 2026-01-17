@@ -15,6 +15,7 @@ import ReactMarkdown from "react-markdown";
 import { AnalysisPanel } from "@/components/AnalysisPanel";
 import type { ClauseSummary, SourceCitation } from "@/lib/api";
 import { apiGet, apiPost } from "@/lib/auth-fetch";
+import { useChat } from "@/contexts/ChatContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -131,7 +132,11 @@ interface DocumentInfo {
 
 function ChatPageContent() {
     const searchParams = useSearchParams();
-    const docId = searchParams.get("doc_id");
+    const docIdParam = searchParams.get("doc_id") || searchParams.get("doc"); // Handle both doc_id and doc
+    const sessionIdParam = searchParams.get("session_id");
+
+    const [docId, setDocId] = useState<string | null>(docIdParam);
+    const [sessionId, setSessionId] = useState<string | null>(sessionIdParam);
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
@@ -142,15 +147,80 @@ function ChatPageContent() {
     const [clausesLoading, setClausesLoading] = useState(false);
     const [analysisPanelOpen, setAnalysisPanelOpen] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const { fetchRecentChats } = useChat();
 
     useEffect(() => {
-        if (docId) {
+        if (sessionId) {
+            fetchSessionData();
+        } else if (docId) {
             fetchDocumentAnalysis();
             fetchClauses();
         } else {
             setLoadingDoc(false);
         }
-    }, [docId]);
+    }, [docId, sessionId]);
+
+    const fetchSessionData = async () => {
+        if (!sessionId) return;
+        setLoadingDoc(true);
+        try {
+            // 1. Get session details to find doc_id
+            const sessionRes = await apiGet(`/api/v1/chat/sessions/${sessionId}`);
+            if (!sessionRes.ok) throw new Error("Failed to load session");
+            const sessionData = await sessionRes.json();
+
+            // Set docId from session
+            const sessionDocId = sessionData.session?.document_ids?.[0];
+            if (sessionDocId) {
+                setDocId(sessionDocId);
+            }
+
+            // 2. Load messages
+            const messagesRes = await apiGet(`/api/v1/chat/history/${sessionId}/messages`);
+            if (messagesRes.ok) {
+                const messagesData = await messagesRes.json();
+                const historyMessages = messagesData.messages.map((msg: any) => ({
+                    id: msg.message_id,
+                    role: msg.role,
+                    content: msg.content,
+                    sources: msg.sources
+                }));
+                // Sort by creation time if needed (usually backend returns sorted)
+                setMessages(historyMessages);
+            }
+
+            // 3. Load document info (analysis, title, etc)
+            if (sessionDocId) {
+                // calls fetchDocumentAnalysis logic reuse
+                const response = await apiGet(`/api/v1/chat/${sessionDocId}/initial`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setDocumentInfo(data);
+                    // Don't overwrite messages with initial analysis if we have history
+                    if (messagesRes.ok) {
+                        // already set messages
+                    } else if (data.analysis) {
+                        setMessages([{
+                            id: "initial",
+                            role: "assistant",
+                            content: data.analysis
+                        }]);
+                    }
+                    // Fetch clauses
+                    const clausesResponse = await apiGet(`/api/v1/documents/${sessionDocId}/clauses`);
+                    if (clausesResponse.ok) {
+                        const clausesData = await clausesResponse.json();
+                        setClauses(clausesData.clauses || []);
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.error("Failed to load session:", error);
+        } finally {
+            setLoadingDoc(false);
+        }
+    };
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -165,6 +235,13 @@ function ChatPageContent() {
             if (response.ok) {
                 const data = await response.json();
                 setDocumentInfo(data);
+
+                // Capture session_id if returned (handles auto-persistence)
+                if (data.session_id && !sessionId) {
+                    setSessionId(data.session_id);
+                    // Update URL gently
+                    window.history.replaceState(null, "", `/chat?doc_id=${docId}&session_id=${data.session_id}`);
+                }
 
                 if (data.analysis) {
                     setMessages([{
@@ -218,15 +295,33 @@ function ChatPageContent() {
         setIsLoading(true);
 
         try {
-            const response = await apiPost("/api/v1/chat", {
-                doc_id: docId,
-                question: input,
-                history: messages.map(m => ({ role: m.role, content: m.content }))
-            });
+            let response;
+            let data;
+
+            if (sessionId) {
+                // Use session-specific endpoint
+                response = await apiPost(`/api/v1/chat/sessions/${sessionId}/ask`, {
+                    question: input
+                });
+            } else {
+                // Use legacy endpoint for new chats
+                response = await apiPost("/api/v1/chat", {
+                    doc_id: docId,
+                    question: input,
+                    history: messages.map(m => ({ role: m.role, content: m.content }))
+                });
+            }
 
             if (!response.ok) throw new Error("Chat failed");
+            data = await response.json();
 
-            const data = await response.json();
+            // If we just created a session via legacy endpoint, we might want to capture the ID?
+            // The legacy endpoint return type ChatAnswerResponse includes session_id!
+            if (!sessionId && data.session_id) {
+                setSessionId(data.session_id);
+                // Optionally update URL without reload? 
+                window.history.replaceState(null, "", `/chat?session_id=${data.session_id}`);
+            }
 
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
@@ -234,7 +329,12 @@ function ChatPageContent() {
                 content: data.answer,
                 sources: data.sources || []
             }]);
+
+            // Update recent chats list in sidebar
+            fetchRecentChats();
+
         } catch (error) {
+            console.error("Send error:", error);
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",

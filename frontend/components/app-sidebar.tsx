@@ -19,17 +19,16 @@ import {
     LayoutDashboard,
     Settings,
     ArrowUpFromLine,
-    Brain,
+    Sparkles,
     History,
     Loader
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
-import { apiGet } from "@/lib/auth-fetch";
 
 const mainNavItems = [
-    { title: "Dashboard", icon: LayoutDashboard, href: "/" },
+    { title: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
     { title: "Upload Document", icon: ArrowUpFromLine, href: "/upload" },
     { title: "Documents", icon: FileText, href: "/documents" },
     { title: "Chat", icon: MessageSquare, href: "/chat" },
@@ -47,41 +46,21 @@ interface ChatSession {
     last_message_preview: string;
 }
 
+import { useChat } from "@/contexts/ChatContext";
+
 export function AppSidebar() {
     const { user, logout, isAuthenticated } = useAuth();
-    const [recentChats, setRecentChats] = useState<ChatSession[]>([]);
-    const [loadingChats, setLoadingChats] = useState(false);
-
-    useEffect(() => {
-        if (isAuthenticated) {
-            fetchRecentChats();
-        }
-    }, [isAuthenticated]);
-
-    const fetchRecentChats = async () => {
-        setLoadingChats(true);
-        try {
-            const response = await apiGet("/api/v1/chat/history/me?limit=5");
-            if (response.ok) {
-                const data = await response.json();
-                setRecentChats(data.sessions || []);
-            }
-        } catch (error) {
-            console.log("Failed to fetch recent chats:", error);
-        } finally {
-            setLoadingChats(false);
-        }
-    };
+    const { recentChats, loadingChats } = useChat();
 
     return (
         <Sidebar className="border-r border-sidebar-border">
             <SidebarHeader className="p-4">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
-                        <Brain className="h-6 w-6 text-white" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/20 to-pink-500/20 border border-violet-500/20">
+                        <Sparkles className="h-5 w-5 text-violet-400" />
                     </div>
                     <div>
-                        <h1 className="text-lg font-bold text-sidebar-foreground">InsightGPT</h1>
+                        <h1 className="text-lg font-bold bg-gradient-to-r from-violet-400 via-pink-400 to-orange-400 bg-clip-text text-transparent">InsightGPT</h1>
                         <p className="text-xs text-sidebar-foreground/60">AI Document Analysis</p>
                     </div>
                 </div>
